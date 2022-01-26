@@ -2,7 +2,7 @@
   "name": "nodeapi",
   "version": "1.0.0",
   "description": "This is a Node JS Express application for handling requests deployed on the gcloud app engine",
-  "main": "app.js",
+  "main": "src/app.js",
   "scripts": {
     "start": "node_modules/.bin/nodemon --exec babel-node src/index.js",
     "format": "prettier --write \"src/**/*.{js,jsx}\"",
@@ -20,6 +20,12 @@
   },
   "homepage": "https://github.com/Vehicle-Tracking-Capstone-2021-Ryerson/nodeAPI#readme",
   "dependencies": {
+    "@babel/cli": "^7.16.8",
+    "@babel/core": "^7.16.12",
+    "@babel/node": "^7.16.8",
+    "@babel/preset-env": "^7.16.11",
+    "@babel/runtime": "^7.16.7",
+    "babel-loader": "^8.2.3",
     "babel-node": "^0.0.1-security",
     "body-parser": "^1.19.1",
     "cors": "^2.8.5",
@@ -32,11 +38,6 @@
     "runtime": "^0.14.1"
   },
   "devDependencies": {
-    "@babel/cli": "^7.16.8",
-    "@babel/core": "^7.16.12",
-    "@babel/node": "^7.16.8",
-    "@babel/preset-env": "^7.16.11",
-    "@babel/runtime": "^7.16.7",
     "eslint": "^8.7.0",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-google": "^0.14.0",
