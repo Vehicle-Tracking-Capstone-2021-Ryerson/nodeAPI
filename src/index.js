@@ -1,13 +1,50 @@
 import express from "express";
 import mongoose from "mongoose";
 
+const { Schema } = mongoose;
+
 require("dotenv").config();
+
+const UserSchema = new Schema({
+  userid: Number,
+  username: String,
+  password: String,
+  userscore: Number,
+  accidents: Number,
+  drivinghistory: mongoose.Mixed, // to be expanded
+});
+
+const DrivingUser = mongoose.model("DrivingUser", UserSchema);
+
+const user1 = new DrivingUser({
+  userid: 1,
+  username: "testperson",
+  password: "tEsT",
+  userscore: 81,
+  accidents: 0,
+  drivinghistory: {},
+});
+
+const user2 = new DrivingUser({
+  userid: 2,
+});
 
 const connectToDB = async () => {
   await mongoose.connect(process.env.DATABASE_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   });
+
+  const user1s = await DrivingUser.find({ userid: user1.userid });
+  const user2s = await DrivingUser.find({ userid: user2.userid });
+
+  if (user1s.length === 0) {
+    await user1.save();
+  }
+
+  if (user2s.length === 0) {
+    await user2.save();
+  }
 
   console.log("Connected!");
 };
@@ -19,11 +56,6 @@ try {
 } catch (e) {
   console.log("ERROR! Can't connect to db!");
 }
-
-//checks for valid userId
-const exists = (userId) => {
-  return true;
-};
 
 const app = express();
 
@@ -73,12 +105,15 @@ app.get("/status", (req, res) => {
    Output: user score, accidents, driving history
    Called by: Web Application
 */
-app.get("/getReport", (userId, res) => {
-  if (exists(userId) === true) {
-    res.send({ userScore: 81, accidents: 0, drivingHistory: "..." });
-  } else {
-    res.send("Error: User not found");
-  }
+app.get("/getReport", async (req, res) => {
+  const userId = 1;
+  await DrivingUser.find({ userid: userId }).then((users) => {
+    if (users.length === 0) {
+      res.send("Error: User not found");
+    } else {
+      res.send(users[0]);
+    }
+  });
 });
 
 /* This will be used to get any specific data stored for a driver that will allow flexibility for application development
