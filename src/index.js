@@ -1,7 +1,33 @@
 import express from "express";
 import mongoose from "mongoose";
 
+const { Schema } = mongoose;
+
 require("dotenv").config();
+
+const UserSchema = new Schema({
+  userid: Number,
+  username: String,
+  password: String,
+  userscore: Number,
+  accidents: Number,
+  drivinghistory: mongoose.Mixed, // to be expanded
+});
+
+const DrivingUser = mongoose.model("DrivingUser", UserSchema);
+
+const user1 = new DrivingUser({
+  userid: 2,
+  username: "testperson",
+  password: "tEsT",
+  userscore: 81,
+  accidents: 0,
+  drivinghistory: {},
+});
+
+const user2 = new DrivingUser({
+  userid: 3,
+});
 
 const connectToDB = async () => {
   await mongoose.connect(process.env.DATABASE_URL, {
@@ -9,6 +35,8 @@ const connectToDB = async () => {
     useUnifiedTopology: true,
   });
 
+  await user1.save;
+  await user2.save;
   console.log("Connected!");
 };
 
@@ -20,9 +48,11 @@ try {
   console.log("ERROR! Can't connect to db!");
 }
 
-//checks for valid userId
-const exists = (userId) => {
-  return true;
+// checks for valid userId
+const exists = async (id) => {
+  const users = await DrivingUser.find({ userid: id });
+  console.log(users);
+  return users;
 };
 
 const app = express();
@@ -73,9 +103,11 @@ app.get("/status", (req, res) => {
    Output: user score, accidents, driving history
    Called by: Web Application
 */
-app.get("/getReport", (userId, res) => {
-  if (exists(userId) === true) {
-    res.send({ userScore: 81, accidents: 0, drivingHistory: "..." });
+app.get("/getReport", (req, res) => {
+  const userId = 2;
+  const users = exists(userId);
+  if (users.length === 0) {
+    res.send(users[0]);
   } else {
     res.send("Error: User not found");
   }
