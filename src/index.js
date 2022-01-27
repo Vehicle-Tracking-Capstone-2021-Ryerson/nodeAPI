@@ -17,7 +17,7 @@ const UserSchema = new Schema({
 const DrivingUser = mongoose.model("DrivingUser", UserSchema);
 
 const user1 = new DrivingUser({
-  userid: 2,
+  userid: 1,
   username: "testperson",
   password: "tEsT",
   userscore: 81,
@@ -26,7 +26,7 @@ const user1 = new DrivingUser({
 });
 
 const user2 = new DrivingUser({
-  userid: 3,
+  userid: 2,
 });
 
 const connectToDB = async () => {
@@ -35,8 +35,17 @@ const connectToDB = async () => {
     useUnifiedTopology: true,
   });
 
-  await user1.save();
-  await user2.save();
+  const user1s = await DrivingUser.find({ userid: user1.userid });
+  const user2s = await DrivingUser.find({ userid: user2.userid });
+
+  if (user1s.length === 0) {
+    await user1.save();
+  }
+
+  if (user2s.length === 0) {
+    await user2.save();
+  }
+
   console.log("Connected!");
 };
 
@@ -47,13 +56,6 @@ try {
 } catch (e) {
   console.log("ERROR! Can't connect to db!");
 }
-
-// checks for valid userId
-const exists = async (id) => {
-  const users = await DrivingUser.find({ userid: id });
-  console.log(users);
-  return users;
-};
 
 const app = express();
 
@@ -103,14 +105,15 @@ app.get("/status", (req, res) => {
    Output: user score, accidents, driving history
    Called by: Web Application
 */
-app.get("/getReport", (req, res) => {
-  const userId = 2;
-  const users = exists(userId);
-  if (users.length === 0) {
-    res.send(users[0]);
-  } else {
-    res.send("Error: User not found");
-  }
+app.get("/getReport", async (req, res) => {
+  const userId = 1;
+  await DrivingUser.find({ userid: userId }).then((users) => {
+    if (users.length === 0) {
+      res.send("Error: User not found");
+    } else {
+      res.send(users[0]);
+    }
+  });
 });
 
 /* This will be used to get any specific data stored for a driver that will allow flexibility for application development
