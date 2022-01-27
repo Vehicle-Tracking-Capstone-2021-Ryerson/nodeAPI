@@ -35,8 +35,8 @@ const connectToDB = async () => {
     useUnifiedTopology: true,
   });
 
-  await user1.save;
-  await user2.save;
+  await user1.save();
+  await user2.save();
   console.log("Connected!");
 };
 
