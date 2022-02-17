@@ -107,14 +107,14 @@ app.get("/", (req, res) => {
 */
 app.get("/auth", async (req, res) => {
   const users = await DrivingUser.find({
-    username: req.params.username,
-    password: req.params.password,
+    username: req.query.username,
+    password: req.query.password,
   });
 
   if (users.length === 0) {
     res.send("Authentication Failed");
   } else if (users.length === 1) {
-    res.send(users._id);
+    res.send(users[0]._id);
   } else {
     console.log(users);
     res.send("Error");
@@ -127,7 +127,7 @@ app.get("/auth", async (req, res) => {
    Called by: Real-Time Monitoring System
 */
 app.get("/start", async (req, res) => {
-  const user = await DrivingUser.find(req.params._id);
+  const user = await DrivingUser.find({ _id: req.query._id });
 
   if (user.length === 0) {
     res.send("User Does Not Exist");
@@ -160,26 +160,28 @@ app.get("/start", async (req, res) => {
 app.get("/end", async (req, res) => {
   const user = await DrivingUser.findOneAndUpdate(
     {
-      _id: req.params._id,
-      "drivinghistory.session": req.params.token,
+      _id: req.query._id,
+      "drivinghistory.session": req.query.token,
     },
     { $set: { "drivinghistory.$.status": "finished" } },
     { new: true }
   );
 
-  let check = false;
-  user.drivinghistory.forEach((x) => {
-    if (x.session === req.params.token && x.status === "finished") {
-      check = true;
-    }
-  });
-
   if (user == null) {
     res.send("Session Does Not Exist");
-  } else if (check === true) {
-    res.send("Session Ended");
   } else {
-    res.send("Session Failed to End");
+    let check = false;
+    user.drivinghistory.forEach((x) => {
+      if (x.session === req.query.token && x.status === "finished") {
+        check = true;
+      }
+    });
+
+    if (check === true) {
+      res.send("Session Ended");
+    } else {
+      res.send("Session Failed to End");
+    }
   }
 
   // uploadFile().catch(console.error);
@@ -205,7 +207,7 @@ app.get("/speedLimit", (req, res) => {
 
   const config = {
     method: "get",
-    url: `http://dev.virtualearth.net/REST/v1/Routes/SnapToRoad?points=${req.params.location_data}&includeSpeedLimit=true&key=${process.env.BING_API_KEY}`,
+    url: `http://dev.virtualearth.net/REST/v1/Routes/SnapToRoad?points=${req.query.location_data}&includeSpeedLimit=true&key=${process.env.BING_API_KEY}`,
     headers: {},
   };
 
