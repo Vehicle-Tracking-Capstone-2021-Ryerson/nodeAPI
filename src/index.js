@@ -4,24 +4,14 @@ import { Client } from "@googlemaps/google-maps-services-js";
 import { Storage } from "@google-cloud/storage";
 import axios from "axios";
 
-const bucketName = "your-unique-bucket-name";
-const filePath = "path/to/your/file";
-const destFileName = "your-new-file-name";
-
-// Creates a client
+// Google Storage
 const googleStorage = new Storage();
+const bucketName = "session-data";
 
-async function uploadFile() {
-  await googleStorage.bucket(bucketName).upload(filePath, {
-    destination: destFileName,
-  });
-
-  console.log(`${filePath} uploaded to ${bucketName}`);
-}
-
+// Mongoose
 const { Schema } = mongoose;
-const roadsClient = new Client({});
 
+// Token Generator
 const allCapsAlpha = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 const allLowerAlpha = [..."abcdefghijklmnopqrstuvwxyz"];
 const allUniqueChars = [..."~!@#$%^&*()_+-=[]\\{}|;:'\",./<>?"];
@@ -43,7 +33,6 @@ const generator = (base, len) => {
 require("dotenv").config();
 
 const UserSchema = new Schema({
-  userid: Number,
   username: String,
   password: String,
   userscore: Number,
@@ -53,35 +42,11 @@ const UserSchema = new Schema({
 
 const DrivingUser = mongoose.model("DrivingUser", UserSchema);
 
-const user1 = new DrivingUser({
-  username: "testperson",
-  password: "tEsT",
-  userscore: 81,
-  accidents: 0,
-  drivinghistory: [],
-});
-
-const user2 = new DrivingUser({
-  username: "User2",
-  password: "9671111",
-});
-
 const connectToDB = async () => {
   await mongoose.connect(process.env.DATABASE_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   });
-
-  const user1s = await DrivingUser.find({ username: user1.username });
-  const user2s = await DrivingUser.find({ username: user2.username });
-
-  if (user1s.length === 0) {
-    await user1.save();
-  }
-
-  if (user2s.length === 0) {
-    await user2.save();
-  }
 
   console.log("Connected!");
 };
@@ -116,7 +81,6 @@ app.get("/auth", async (req, res) => {
   } else if (users.length === 1) {
     res.send(users[0]._id);
   } else {
-    console.log(users);
     res.send("Error");
   }
 });
@@ -147,7 +111,6 @@ app.get("/start", async (req, res) => {
 
     res.send(token);
   } else {
-    console.log(user);
     res.send("Error");
   }
 });
@@ -158,43 +121,67 @@ app.get("/start", async (req, res) => {
    Called by: Real-Time Monitoring System
 */
 app.get("/end", async (req, res) => {
-  const user = await DrivingUser.findOneAndUpdate(
-    {
-      _id: req.query._id,
-      "drivinghistory.session": req.query.token,
-    },
-    { $set: { "drivinghistory.$.status": "finished" } },
-    { new: true }
-  );
+  const file = googleStorage
+    .bucket(bucketName)
+    .file(req.query.token)
+    .createReadStream();
+  let buf = "";
 
-  if (user == null) {
-    res.send("Session Does Not Exist");
-  } else {
-    let check = false;
-    user.drivinghistory.forEach((x) => {
-      if (x.session === req.query.token && x.status === "finished") {
-        check = true;
+  file
+    .on("data", (d) => {
+      buf += d;
+    })
+    .on("end", async () => {
+      buf = JSON.parse(buf);
+
+      // insert algorithm to determine driving score here
+      const drivingscore = 81;
+
+      const user = await DrivingUser.findOneAndUpdate(
+        {
+          _id: req.query._id,
+          "drivinghistory.session": req.query.token,
+        },
+        {
+          $set: {
+            "drivinghistory.$.status": "finished",
+            "drivinghistory.$.drivingscore": drivingscore,
+          },
+        },
+        { new: true }
+      );
+
+      if (user == null) {
+        res.send("Session Does Not Exist");
+      } else {
+        let check = false;
+        user.drivinghistory.forEach((x) => {
+          if (x.session === req.query.token && x.status === "finished") {
+            check = true;
+          }
+        });
+
+        if (check === true) {
+          res.send("Session Ended");
+          let scoreSum = 0;
+          let count = 0;
+
+          user.drivinghistory.forEach((session) => {
+            if (session.drivingscore !== undefined) {
+              scoreSum += session.drivingscore;
+              count += 1;
+            }
+          });
+
+          await DrivingUser.updateOne(
+            { _id: req.query._id },
+            { userscore: scoreSum / count }
+          );
+        } else {
+          res.send("Session Failed to End");
+        }
       }
     });
-
-    if (check === true) {
-      res.send("Session Ended");
-    } else {
-      res.send("Session Failed to End");
-    }
-  }
-
-  // uploadFile().catch(console.error);
-});
-
-/* Get status of the current session
-   Can also be expanded to include accedent detection
-   Input: tbd
-   Output: tbd
-   Called by: Real-Time Monitoring System
-*/
-app.get("/status", (req, res) => {
-  res.send({ speedLimit: 50, hasAccidentOccured: false });
 });
 
 /* Get the current street name and the speed limit
@@ -234,12 +221,81 @@ app.get("/speedLimit", (req, res) => {
    Called by: Web Application
 */
 app.get("/getReport", async (req, res) => {
-  const userId = 1;
-  await DrivingUser.find({ userid: userId }).then((users) => {
+  await DrivingUser.find({ _id: req.query._id }).then((users) => {
     if (users.length === 0) {
       res.send("Error: User not found");
     } else {
-      res.send(users[0]);
+      res.send(users[0].drivinghistory);
+    }
+  });
+});
+
+/* Add a new user
+   Input: new user's username and password
+   Output: success/error
+   Called by: Web Application
+*/
+app.get("/addUser", async (req, res) => {
+  await DrivingUser.find({ username: req.query.username }).then((users) => {
+    if (users.length === 0) {
+      const newUser = new DrivingUser({
+        username: req.query.username,
+        password: req.query.password,
+        userscore: null,
+        accidents: 0,
+        drivinghistory: [],
+      });
+
+      newUser.save();
+      res.send("Success: A new user has been created");
+    } else {
+      res.send("Error: That username is already taken");
+    }
+  });
+});
+
+/* Add a new user
+   Input: new user's username and password
+   Output: success/error
+   Called by: Web Application
+*/
+app.get("/removeUser", async (req, res) => {
+  await DrivingUser.findByIdAndDelete(req.query._id).then((users) => {
+    if (users.length === 0) {
+      res.send("Error: User not found");
+    } else {
+      res.send("Success: User was deleted");
+    }
+  });
+});
+
+/* Retrieves all users in the database
+   Called by: Web Application
+*/
+app.get("/retrieveUsers", async (req, res) => {
+  await DrivingUser.find().then((users) => {
+    if (users.length === 0) {
+      res.send("Error: There are no users in the database");
+    } else {
+      const result = [];
+      users.forEach((x) => {
+        if (x.drivinghistory[x.drivinghistory.length - 1] === undefined) {
+          result.push({
+            username: x.username,
+            userscore: x.userscore,
+            lastDrivingSession: null,
+          });
+        } else {
+          result.push({
+            username: x.username,
+            userscore: x.userscore,
+            lastDrivingSession:
+              x.drivinghistory[x.drivinghistory.length - 1].date,
+          });
+        }
+      });
+
+      res.send(result);
     }
   });
 });
