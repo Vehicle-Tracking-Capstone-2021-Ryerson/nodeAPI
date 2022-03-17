@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { Client } from "@googlemaps/google-maps-services-js";
 import { Storage } from "@google-cloud/storage";
 import axios from "axios";
+import cors from "cors";
 
 // Google Storage
 const googleStorage = new Storage();
@@ -54,6 +55,9 @@ try {
 }
 
 const app = express();
+app.use(cors());
+
+const whitelist = ["http://localhost"];
 
 app.get("/", (req, res) => {
   res.send("Vehicle Tracking 2021");
