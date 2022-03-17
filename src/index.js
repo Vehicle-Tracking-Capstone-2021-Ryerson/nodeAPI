@@ -75,11 +75,11 @@ app.get("/auth", async (req, res) => {
   });
 
   if (users.length === 0) {
-    res.send("Authentication Failed");
+    res.status(401).send("Authentication Failed");
   } else if (users.length === 1) {
     res.send(users[0]._id);
   } else {
-    res.send("Error");
+    res.status(409).send("Error");
   }
 });
 
@@ -109,7 +109,7 @@ app.get("/start", async (req, res) => {
 
     res.send(token);
   } else {
-    res.send("Error");
+    res.status(409).send("Error");
   }
 });
 
@@ -176,7 +176,7 @@ app.get("/end", async (req, res) => {
             { userscore: scoreSum / count }
           );
         } else {
-          res.send("Session Failed to End");
+          res.status(409).send("Session Failed to End");
         }
       }
     });
@@ -221,7 +221,7 @@ app.get("/speedLimit", (req, res) => {
 app.get("/getReport", async (req, res) => {
   await DrivingUser.find({ _id: req.query._id }).then((users) => {
     if (users.length === 0) {
-      res.send("Error: User not found");
+      res.status(409).send("Error: User not found");
     } else {
       res.send(users[0].drivinghistory);
     }
@@ -247,7 +247,7 @@ app.get("/addUser", async (req, res) => {
       newUser.save();
       res.send("Success: A new user has been created");
     } else {
-      res.send("Error: That username is already taken");
+      res.status(409).send("Error: That username is already taken");
     }
   });
 });
@@ -260,7 +260,7 @@ app.get("/addUser", async (req, res) => {
 app.get("/removeUser", async (req, res) => {
   await DrivingUser.findByIdAndDelete(req.query._id).then((users) => {
     if (users.length === 0) {
-      res.send("Error: User not found");
+      res.status(404).send("Error: User not found");
     } else {
       res.send("Success: User was deleted");
     }
