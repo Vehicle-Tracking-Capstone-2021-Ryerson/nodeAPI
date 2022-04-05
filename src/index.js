@@ -279,12 +279,16 @@ app.get("/retrieveUsers", async (req, res) => {
       users.forEach((x) => {
         if (x.drivinghistory[x.drivinghistory.length - 1] === undefined) {
           result.push({
+            // eslint-disable-next-line no-underscore-dangle
+            id: x._id,
             username: x.username,
             userscore: x.userscore,
             lastDrivingSession: null,
           });
         } else {
           result.push({
+            // eslint-disable-next-line no-underscore-dangle
+            id: x._id,
             username: x.username,
             userscore: x.userscore,
             lastDrivingSession:
