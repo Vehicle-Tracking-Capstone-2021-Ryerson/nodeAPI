@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import { Client } from "@googlemaps/google-maps-services-js";
+import DrawingManager from "google-maps-drawing-tools";
 import { Storage } from "@google-cloud/storage";
 import axios from "axios";
 import cors from "cors";
@@ -8,6 +9,8 @@ import cors from "cors";
 // Google Storage
 const googleStorage = new Storage();
 const bucketName = "session-data";
+
+const datOne = require("../test-data.json");
 
 // Mongoose
 const { Schema } = mongoose;
@@ -309,6 +312,17 @@ app.get("/retrieveUsers", async (req, res) => {
 */
 app.get("/getSpecific/<data_point>", (req, res) => {
   res.send("This is a placeholder");
+});
+
+app.get("/generateMap", (req, res) => {
+  const gpsDat = datOne.gpsData;
+  const coordinates = [];
+  gpsDat.forEach((place) => {
+    const { lat, lon } = place;
+    coordinates.push({ lat: parseFloat(lat), lng: parseFloat(lon) });
+  });
+  console.log(coordinates);
+  res.send(coordinates);
 });
 
 const port = process.env.PORT || 8080;
