@@ -314,15 +314,32 @@ app.get("/getSpecific/<data_point>", (req, res) => {
   res.send("This is a placeholder");
 });
 
-app.get("/generateMap", (req, res) => {
-  const gpsDat = datOne.gpsData;
-  const coordinates = [];
-  gpsDat.forEach((place) => {
-    const { lat, lon } = place;
-    coordinates.push({ lat: parseFloat(lat), lng: parseFloat(lon) });
-  });
-  console.log(coordinates);
-  res.send(coordinates);
+app.get("/getDrivingMap", (req, res) => {
+  const file = googleStorage
+    .bucket(bucketName)
+    .file(req.query.token)
+    .createReadStream();
+  let buf = "";
+
+  file
+    .on("data", (d) => {
+      buf += d;
+    })
+    .on("end", async () => {
+      buf = JSON.parse(buf);
+
+      if (buf.gpsData) {
+        const { gpsData } = buf;
+        const coordinates = [];
+        gpsData.forEach((place) => {
+          const { lat, lon } = place;
+          coordinates.push({ lat: parseFloat(lat), lng: parseFloat(lon) });
+        });
+        res.send(coordinates);
+      } else {
+        res.send([]);
+      }
+    });
 });
 
 const port = process.env.PORT || 8080;
