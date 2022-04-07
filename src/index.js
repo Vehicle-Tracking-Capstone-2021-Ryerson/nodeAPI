@@ -353,6 +353,47 @@ app.get("/getDrivingMap", async (req, res) => {
       }
     });
 });
+/*
+Generates the coordinates of our driving session
+*/
+app.get("/getReportData", async (req, res) => {
+  const file = googleStorage
+    .bucket(bucketName)
+    .file(req.query.token)
+    .createReadStream();
+  let buf = "";
+
+  file
+    .on("data", (d) => {
+      buf += d;
+    })
+    .on("end", async () => {
+      buf = JSON.parse(buf);
+
+      if (buf.gpsData) {
+        const { gpsData } = buf;
+        const coordinates = [];
+        gpsData.forEach((place) => {
+          const { lat, lon } = place;
+          coordinates.push({ lat: parseFloat(lat), lng: parseFloat(lon) });
+        });
+
+        const result = await DrivingUser.findOne({
+          "drivinghistory.session": req.query.token,
+        });
+
+        let sessionData = {};
+        result.drivinghistory.forEach((hist) => {
+          if (hist.session === req.query.token) {
+            sessionData = hist;
+          }
+        });
+        res.send(sessionData);
+      } else {
+        res.send([]);
+      }
+    });
+});
 
 const port = process.env.PORT || 8080;
 
