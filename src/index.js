@@ -132,8 +132,120 @@ app.get("/end", async (req, res) => {
     .on("end", async () => {
       buf = JSON.parse(buf);
 
-      // insert algorithm to determine driving score here
-      const drivingscore = 81;
+      let overSpeed = [];
+      let speedCost = 0;
+      let tailgating = [];
+      let tailCost = 0;
+      let revCost = 0;
+      let fuelStart;
+      let fuelEnd;
+      let drivingscore = 100;
+
+      if (buf.gpsData !== undefined && buf.OBD_data !== undefined) {
+        buf.gpsData.forEach((reading, index) => {
+          const date = new Date();
+          const dateFuture = new Date();
+          date.setTime(Date.parse(reading.time));
+          dateFuture.setTime(date.getTime() + 5000);
+
+          buf.OBD_data.forEach((car) => {
+            const carDate = new Date();
+            carDate.setTime(Date.parse(car.time));
+            if (
+              carDate > date &&
+              carDate < dateFuture &&
+              car.speed > reading.speed * 1.1 &&
+              reading.speed !== "0"
+            ) {
+              overSpeed.push({
+                speed: car.speed,
+                speedLimit: reading.speed,
+                street: reading.street,
+                time: car.time,
+                currentCoord: { lat: reading.lat, lon: reading.lon },
+                nextCoord: {
+                  lat: buf.gpsData[index + 1].lat,
+                  lon: buf.gpsData[index + 1].lon,
+                },
+              });
+            }
+          });
+        });
+
+        overSpeed = overSpeed.filter(
+          (value, index, self) =>
+            index === self.findIndex((t) => t.time === value.time)
+        );
+
+        overSpeed.forEach((entry) => {
+          speedCost += entry.speed / entry.speedLimit;
+        });
+      } else {
+        overSpeed = undefined;
+      }
+
+      if (buf.blindspotData.F !== [] && buf.OBD_data !== undefined) {
+        const date = new Date();
+        const datePast = new Date();
+        const dateFuture = new Date();
+        const carDate = new Date();
+
+        buf.blindspotData.F.forEach((reading, index) => {
+          if (
+            reading.data !== "0" &&
+            index - 1 > 0 &&
+            index + 1 < buf.blindspotData.F.length &&
+            buf.blindspotData.F[index - 1].data !== "0" &&
+            buf.blindspotData.F[index + 1].data !== "0"
+          ) {
+            date.setTime(Date.parse(reading.time));
+            datePast.setTime(date.getTime() - 4000);
+            dateFuture.setTime(date.getTime() + 4000);
+
+            buf.OBD_data.forEach((car) => {
+              carDate.setTime(Date.parse(car.time));
+
+              if (
+                carDate > datePast &&
+                carDate < dateFuture &&
+                car.speed >= 30
+              ) {
+                tailgating.push({
+                  data: reading.data,
+                  speed: car.speed,
+                  time: reading.time,
+                });
+              }
+            });
+          }
+        });
+
+        tailgating.forEach(() => {
+          tailCost += 5;
+        });
+      } else {
+        tailgating = undefined;
+      }
+
+      if (buf.OBD_data !== undefined) {
+        let avgRev = 0;
+
+        buf.OBD_data.forEach((reading) => {
+          avgRev += parseFloat(reading.rpm);
+        });
+
+        if (avgRev / buf.OBD_data.length > 5000) {
+          revCost = 2;
+        }
+
+        fuelStart = buf.OBD_data[0].fuel.replace(/^\s+|\s+$/g, "");
+        fuelEnd = buf.OBD_data[buf.OBD_data.length - 1].fuel.replace(
+          /^\s+|\s+$/g,
+          ""
+        );
+      }
+
+      drivingscore = drivingscore - speedCost - tailCost - revCost;
 
       const user = await DrivingUser.findOneAndUpdate(
         {
@@ -144,6 +256,13 @@ app.get("/end", async (req, res) => {
           $set: {
             "drivinghistory.$.status": "finished",
             "drivinghistory.$.drivingscore": drivingscore,
+            "drivinghistory.$.speedCost": speedCost,
+            "drivinghistory.$.tailCost": tailCost,
+            "drivinghistory.$.revCost": revCost,
+            "drivinghistory.$.fuelStart": fuelStart,
+            "drivinghistory.$.fuelEnd": fuelEnd,
+            "drivinghistory.$.overSpeed": overSpeed,
+            "drivinghistory.$.tailgating": tailgating,
           },
         },
         { new: true }
@@ -171,9 +290,16 @@ app.get("/end", async (req, res) => {
             }
           });
 
+          if (buf.accident !== undefined) {
+            if (buf.accident) {
+              user.accidents += 1;
+            }
+          }
+
           await DrivingUser.updateOne(
             { _id: req.query._id },
-            { userscore: scoreSum / count }
+            { userscore: scoreSum / count },
+            { accidents: user.accidents }
           );
         } else {
           res.status(409).send("Session Failed to End");
@@ -298,6 +424,77 @@ app.get("/retrieveUsers", async (req, res) => {
       });
 
       res.send(result);
+    }
+  });
+});
+
+/*
+  Retrieves the Last Person to Use the Car and Also the Last Session
+  Called by: Web Application
+*/
+app.get("/latestUser", async (req, res) => {
+  await DrivingUser.find().then((users) => {
+    if (users.length === 0) {
+      res.send("Error: There are no users in the database");
+    } else {
+      const result = [];
+      users.forEach((x) => {
+        if (x.drivinghistory[x.drivinghistory.length - 1] === undefined) {
+          result.push({
+            // eslint-disable-next-line no-underscore-dangle
+            username: x.username,
+            sessionTime: null,
+          });
+        } else {
+          result.push({
+            // eslint-disable-next-line no-underscore-dangle
+            username: x.username,
+            drivingscore:
+              x.drivinghistory[x.drivinghistory.length - 1].drivingscore,
+            sessionTime: x.drivinghistory[x.drivinghistory.length - 1].date,
+          });
+        }
+      });
+
+      const date = new Date();
+      const latest = Math.max(
+        ...result.map((entry) => {
+          date.setTime(Date.parse(entry.sessionTime));
+          if (!Number.isNaN(date.getTime())) {
+            return date.getTime();
+          }
+          return -1;
+        })
+      );
+
+      date.setTime(latest);
+
+      result.forEach((entry, index) => {
+        if (Date.parse(entry.sessionTime) === date.getTime()) {
+          res.send(result[index]);
+        }
+      });
+    }
+  });
+});
+
+/*
+  Finds the Total Number of Accidents the Car has Been Involved in Across all Users
+  Called by: Web Application
+*/
+app.get("/totalAccidents", async (req, res) => {
+  await DrivingUser.find().then((users) => {
+    if (users.length === 0) {
+      res.send("Error: There are no users in the database");
+    } else {
+      let accident = 0;
+      users.forEach((x) => {
+        if (x.accidents !== undefined) {
+          accident += x.accidents;
+        }
+      });
+
+      res.send({ accidents: accident});
     }
   });
 });
