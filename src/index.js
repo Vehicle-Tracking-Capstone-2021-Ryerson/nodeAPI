@@ -500,15 +500,6 @@ app.get("/totalAccidents", async (req, res) => {
   });
 });
 
-/* This will be used to get any specific data stored for a driver that will allow flexibility for application development
-   Input: necessary data to get a specified data point
-   Output: data if exists or an error otherwise
-   Called by: Web Application
-*/
-app.get("/getSpecific/<data_point>", (req, res) => {
-  res.send("This is a placeholder");
-});
-
 /*
 Generates the coordinates of our driving session
 */
