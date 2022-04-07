@@ -314,7 +314,10 @@ app.get("/getSpecific/<data_point>", (req, res) => {
   res.send("This is a placeholder");
 });
 
-app.get("/getDrivingMap", (req, res) => {
+/*
+Generates the coordinates of our driving session
+*/
+app.get("/getDrivingMap", async (req, res) => {
   const file = googleStorage
     .bucket(bucketName)
     .file(req.query.token)
@@ -335,7 +338,18 @@ app.get("/getDrivingMap", (req, res) => {
           const { lat, lon } = place;
           coordinates.push({ lat: parseFloat(lat), lng: parseFloat(lon) });
         });
-        res.send(coordinates);
+
+        const result = await DrivingUser.findOne({
+          "drivinghistory.session": req.query.token,
+        });
+
+        let speedingHistoryCoords = {};
+        result.drivinghistory.forEach((hist) => {
+          if (hist.session === req.query.token && hist.overSpeed) {
+            speedingHistoryCoords = hist.overSpeed;
+          }
+        });
+        res.send({ coordinates, speedingHistoryCoords });
       } else {
         res.send([]);
       }
