@@ -10,8 +10,6 @@ import cors from "cors";
 const googleStorage = new Storage();
 const bucketName = "session-data";
 
-const datOne = require("../test-data.json");
-
 // Mongoose
 const { Schema } = mongoose;
 
