@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import { Client } from "@googlemaps/google-maps-services-js";
+import DrawingManager from "google-maps-drawing-tools";
 import { Storage } from "@google-cloud/storage";
 import axios from "axios";
 import cors from "cors";
@@ -309,6 +310,48 @@ app.get("/retrieveUsers", async (req, res) => {
 */
 app.get("/getSpecific/<data_point>", (req, res) => {
   res.send("This is a placeholder");
+});
+
+/*
+Generates the coordinates of our driving session
+*/
+app.get("/getDrivingMap", async (req, res) => {
+  const file = googleStorage
+    .bucket(bucketName)
+    .file(req.query.token)
+    .createReadStream();
+  let buf = "";
+
+  file
+    .on("data", (d) => {
+      buf += d;
+    })
+    .on("end", async () => {
+      buf = JSON.parse(buf);
+
+      if (buf.gpsData) {
+        const { gpsData } = buf;
+        const coordinates = [];
+        gpsData.forEach((place) => {
+          const { lat, lon } = place;
+          coordinates.push({ lat: parseFloat(lat), lng: parseFloat(lon) });
+        });
+
+        const result = await DrivingUser.findOne({
+          "drivinghistory.session": req.query.token,
+        });
+
+        let speedingHistoryCoords = {};
+        result.drivinghistory.forEach((hist) => {
+          if (hist.session === req.query.token && hist.overSpeed) {
+            speedingHistoryCoords = hist.overSpeed;
+          }
+        });
+        res.send({ coordinates, speedingHistoryCoords });
+      } else {
+        res.send([]);
+      }
+    });
 });
 
 const port = process.env.PORT || 8080;
