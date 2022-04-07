@@ -142,7 +142,7 @@ app.get("/end", async (req, res) => {
       let fuelEnd;
       let drivingscore = 100;
 
-      if (buf.gpsData !== undefined && buf.OBD_data !== undefined) {
+      if (buf.gpsData.length !== 0 && buf.OBD_data.length !== 0) {
         buf.gpsData.forEach((reading, index) => {
           const date = new Date();
           const dateFuture = new Date();
@@ -185,7 +185,7 @@ app.get("/end", async (req, res) => {
         overSpeed = undefined;
       }
 
-      if (buf.blindspotData.F !== [] && buf.OBD_data !== undefined) {
+      if (buf.blindspotData.F.length !== 0 && buf.OBD_data.length !== 0) {
         const date = new Date();
         const datePast = new Date();
         const dateFuture = new Date();
@@ -228,7 +228,7 @@ app.get("/end", async (req, res) => {
         tailgating = undefined;
       }
 
-      if (buf.OBD_data !== undefined) {
+      if (buf.OBD_data.length !== 0) {
         let avgRev = 0;
 
         buf.OBD_data.forEach((reading) => {
@@ -239,11 +239,13 @@ app.get("/end", async (req, res) => {
           revCost = 2;
         }
 
-        fuelStart = buf.OBD_data[0].fuel.replace(/^\s+|\s+$/g, "");
-        fuelEnd = buf.OBD_data[buf.OBD_data.length - 1].fuel.replace(
+        fuelStart = JSON.stringify(buf.OBD_data[0].fuel).replace(
           /^\s+|\s+$/g,
           ""
         );
+        fuelEnd = JSON.stringify(
+          buf.OBD_data[buf.OBD_data.length - 1].fuel
+        ).replace(/^\s+|\s+$/g, "");
       }
 
       drivingscore = drivingscore - speedCost - tailCost - revCost;
