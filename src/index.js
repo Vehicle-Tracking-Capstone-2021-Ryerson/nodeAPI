@@ -67,7 +67,7 @@ app.get("/", (req, res) => {
 /* Authenticate a driver/user based on pin input 
    Input: username, pin
    Output: if successful returns the user Id, if unsuccessful returns Authentication Failed
-   Called by: Real-Time Monitoring System and Web Application
+   Called by: Real-Time Monitoring System
 */
 app.get("/auth", async (req, res) => {
   const users = await DrivingUser.find({
