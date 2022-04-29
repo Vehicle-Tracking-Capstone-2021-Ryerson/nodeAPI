@@ -98,9 +98,9 @@ app.get("/start", async (req, res) => {
     const token = generator(base, 10);
     const currentdate = new Date();
 
-    const datetime = `${currentdate.getDate()}/${
+    const datetime = `${
       currentdate.getMonth() + 1
-    }/${currentdate.getFullYear()} @ ${currentdate.getHours()}:${currentdate.getMinutes()}:${currentdate.getSeconds()}`;
+    }/${currentdate.getDate()}/${currentdate.getFullYear()} @ ${currentdate.getHours()}:${currentdate.getMinutes()}:${currentdate.getSeconds()}`;
 
     await DrivingUser.updateOne(user[0], {
       $addToSet: {
